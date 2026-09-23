@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Level 1: Vagueness has a cost</title>
+  <meta name="description" content="Compose a prompt from fragments, then watch a simulated AI build a contact form from it.">
+  <link rel="stylesheet" href="css/styles.css">
+  <script defer src="js/dom.js"></script>
+  <script defer src="js/level1.js"></script>
+  <script defer src="js/builder.js"></script>
+  <script defer src="js/renderer.js"></script>
+  <script defer src="js/review.js"></script>
+  <script defer src="js/main.js"></script>
+</head>
+<body>
+  <div class="app" data-phase="compose" data-built="false">
+    <header class="masthead">
+      <p class="level-number" id="level-number">Level 1</p>
+      <h1 class="level-title" id="level-title">Vagueness has a cost</h1>
+    </header>
+
+    <section class="pane pane--brief" aria-labelledby="brief-heading">
+      <div class="ticket">
+        <h2 class="pane-heading ticket-heading" id="brief-heading">Client brief</h2>
+        <div id="brief-body"></div>
+      </div>
+    </section>
+
+    <section class="pane pane--output" aria-labelledby="output-heading">
+      <h2 class="pane-heading" id="output-heading">Build output</h2>
+      <div class="output-body" id="output-body"></div>
+    </section>
+
+    <section class="pane pane--builder" aria-labelledby="builder-heading">
+      <h2 class="pane-heading" id="builder-heading">Your prompt</h2>
+      <div class="builder" id="builder-body"></div>
+    </section>
+  </div>
+</body>
+</html>
