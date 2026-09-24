@@ -100,23 +100,77 @@ test('no two fragments that can sit together fight over a property at the same s
   assert.deepEqual(conflicts, []);
 });
 
-test('every missed requirement has something to point at: the chip that caused it, or the AI\'s own line', () => {
-  // A chip is to blame only if it made the winning write and nothing placed outranks it.
-  const wrote = (id, prop, match) => byId.get(id).effects.some((e) => e.prop === prop && match(e));
+// Rebuild without one chip, to see what that chip changed.
+const without = (r, id) => I.interpret(level, r.placed.filter((x) => x !== id));
+
+test('every miss is blamed on something: the chips that changed it, or the AI\'s own report lines', () => {
   for (const r of results) {
-    const lines = I.report(level, r).lines;
-    for (const { id, met } of r.requirements) {
-      if (met) continue;
-      for (const prop of reqById.get(id).reads) {
-        const { source, strength } = r.why[prop];
-        const pointable = source !== 'default'
-          ? r.placed.includes(source)
-            && wrote(source, prop, (e) => e.value === r.spec[prop] && e.strength === strength)
-            && !r.placed.some((other) => wrote(other, prop, (e) => I.RANK[e.strength] > I.RANK[strength]))
-          : lines.some((line) => line.reads.includes(prop));
-        assert.ok(pointable, `${r.placed.join('+')}: ${id} via ${prop} (${source})`);
+    const reported = I.report(level, r);
+    for (const { id, chips, lines } of I.blame(level, r, reported)) {
+      const name = `${r.placed.join('+')}: ${id}`;
+      assert.ok(chips.length + lines.length > 0, `${name} blames nothing`);
+      for (const line of lines) assert.ok(reported.lines.some((l) => l.id === line), `${name}: no report line "${line}"`);
+    }
+  }
+});
+
+test('a chip is blamed only if taking it out would change what the brief item checks', () => {
+  for (const r of results) {
+    for (const { id, chips, lines } of I.blame(level, r, I.report(level, r))) {
+      const reads = reqById.get(id).reads;
+      for (const chip of chips) {
+        const other = without(r, chip);
+        assert.ok(reads.some((prop) => other.spec[prop] !== r.spec[prop]), `${r.placed.join('+')}: ${id} blamed on ${chip}, which changed nothing`);
+      }
+      // Where the AI is blamed, no single chip could have changed it.
+      if (lines.length) {
+        const own = reads.filter((prop) => r.why[prop].cause === 'default');
+        for (const chip of r.placed) {
+          const other = without(r, chip);
+          assert.ok(own.every((prop) => other.spec[prop] === r.spec[prop]), `${r.placed.join('+')}: ${id} blamed on the AI, but ${chip} changed it`);
+        }
       }
     }
+  }
+});
+
+test('the brief\'s own example: "make it nice" is blamed for the layout it changed, the AI for its defaults', () => {
+  const r = I.interpret(level, ['build', 'contact', 'nice']);
+  assert.deepEqual(I.blame(level, r, I.report(level, r)), [
+    { id: 'phone', chips: [], lines: ['fields'] },
+    { id: 'mobile', chips: ['nice'], lines: [] },
+    { id: 'button', chips: [], lines: ['button'] },
+  ]);
+  const q = I.interpret(level, ['build', 'quote', 'nice']);
+  assert.deepEqual(I.blame(level, q, I.report(level, q)).map((b) => [b.id, b.chips.join()]), [
+    ['phone', 'nice'], ['mobile', 'nice'], ['button', 'nice'],
+  ]);
+});
+
+test('the AI only says it streamlined the fields when a chip really took one away', () => {
+  for (const r of results) {
+    const line = I.report(level, r).lines.find((l) => l.id === 'fields');
+    const removed = level.formFields.filter((f) => !f.secret && !r.spec[f.prop] && r.why[f.prop].cause !== 'default');
+    assert.equal(line.text.startsWith('Streamlined'), removed.length > 0, r.placed.join('+'));
+    for (const f of removed) assert.equal(without(r, r.why[f.prop].cause).spec[f.prop], true, `${r.placed.join('+')}: ${f.prop}`);
+  }
+});
+
+test('each brief item\'s note says what the page shows, never why or which chip', () => {
+  const chipWords = level.fragments.map((f) => f.text.toLowerCase());
+  for (const req of level.requirements) {
+    const notes = new Map();
+    for (const r of results) {
+      const met = r.requirements.find((x) => x.id === req.id).met;
+      const note = req.seen(r.spec);
+      assert.ok(typeof note === 'string' && note.length > 0, req.id);
+      assert.ok(!chipWords.some((w) => note.toLowerCase().includes(w)), note);
+      assert.ok(!/because|should|try|fix|prompt/i.test(note), note);
+      if (!notes.has(note)) notes.set(note, new Set());
+      notes.get(note).add(met);
+    }
+    // A note never belongs to both a met and a missed build, so it can be trusted at a glance.
+    for (const [note, mets] of notes) assert.equal(mets.size, 1, `${req.id}: "${note}"`);
   }
 });
 
@@ -144,7 +198,7 @@ test('every build and its grades match the snapshot (--test-update-snapshots reg
   const rows = results.map((r) => {
     const outcome = {};
     for (const { id, met } of r.requirements) {
-      const causes = reqById.get(id).reads.map((prop) => r.why[prop].source);
+      const causes = reqById.get(id).reads.map((prop) => r.why[prop].cause);
       outcome[id] = `${met ? 'met' : 'MISSED'} by ${causes.join(', ')}`;
     }
     // What got built, walked from the spec so a new property shows up here on its own.

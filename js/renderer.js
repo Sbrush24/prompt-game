@@ -249,6 +249,16 @@
       viewports: { desktop: desktop.viewport, phone: phone.viewport },
       build,
       refit: fit, // call when the pinned bars change height
+      // Mark the report lines behind missed brief items: where the AI's own default stood.
+      markLines(ids) {
+        for (const line of aiSaid.querySelectorAll('.report-line')) {
+          const behind = ids.includes(line.dataset.line);
+          line.classList.toggle('is-blamed', behind);
+          const note = line.querySelector('.report-behind');
+          if (behind && !note) line.prepend(el('span', 'report-behind visually-hidden', 'Behind a miss: '));
+          if (!behind && note) note.remove();
+        }
+      },
     };
   }
 

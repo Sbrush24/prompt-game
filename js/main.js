@@ -1,6 +1,10 @@
-/* Boot. Owns the game phase: compose -> building -> review -> result.
-   Pass 3 runs compose -> building -> review; the review itself (marking the brief,
-   the reveal and retry) arrives in pass 4, so for now the builder reopens after a build. */
+/* Boot. Owns the game phase and the loop around it:
+     compose  -> the player places chips and presses Run
+     building -> the simulated AI builds; nothing can be changed
+     review   -> the player ticks what they think the build does, then presses Check
+     result   -> the truth is revealed, the chips and report lines behind each miss are
+                 marked, and the builder is open again: Retry, or just change a chip.
+   The whole loop runs in well under ten seconds of the game's own time. */
 (function (PG) {
   'use strict';
 
@@ -13,23 +17,29 @@
   const rootStyle = document.documentElement.style;
   const pinned = (edge) => parseFloat(rootStyle.getPropertyValue(`--pinned-${edge}`)) || 0;
 
-  PG.Review.mountBrief(document.getElementById('brief-body'), level);
+  const brief = PG.Review.mountBrief(document.getElementById('brief-body'), level, { onCheck: check, onRetry: retry });
   const output = PG.Renderer.mount(document.getElementById('output-body'), level, { topInset: () => pinned('top') });
-  const builder = PG.Builder.mount(document.getElementById('builder-body'), level, { onRun: run });
+  const builder = PG.Builder.mount(document.getElementById('builder-body'), level, { onRun: run, onChange: changed });
 
   app.dataset.phase = 'compose';
+  let current = null; // the build being reviewed: { result, report }
 
   function run() {
-    if (app.dataset.phase === 'building') return;
+    if (app.dataset.phase === 'building' || app.dataset.phase === 'review') return;
     // Everything that can go wrong happens before the builder locks.
     const placed = builder.placed();
     const result = PG.Interpreter.interpret(level, placed);
     const prompt = PG.Interpreter.promptText(level, placed);
     const report = PG.Interpreter.report(level, result);
 
+    current = { result, report };
+    const runHadFocus = document.activeElement === document.querySelector('.run');
     app.dataset.phase = 'building';
     app.dataset.built = 'true';
     builder.setLocked(true, 'Building…');
+    builder.setBlame({});
+    brief.startBuild();
+    measurePinned(); // the brief just grew its checkboxes; size the frames to what is left
     let building;
     try {
       building = output.build(result.spec, { prompt, report }); // resizes the frames for the first build
@@ -38,12 +48,55 @@
     }
     bringOutputIntoView();
 
-    building
-      .catch((error) => console.error(error))
-      .finally(() => {
-        app.dataset.phase = 'review';
-        builder.setLocked(false);
-      });
+    building.then(() => {
+      app.dataset.phase = 'review';
+      builder.setLocked(true, 'Check the brief first');
+      brief.startReview(result);
+      if (runHadFocus) brief.focusFirstBox(); // keyboard: straight on to the next step
+    }, (error) => {
+      console.error(error);
+      app.dataset.phase = 'compose';
+      builder.setLocked(false);
+      brief.reset();
+    });
+  }
+
+  // Check pressed: the brief shows the truth; mark what is behind each miss.
+  function check() {
+    const { result, report } = current;
+    const byChip = {};
+    const lines = [];
+    for (const { id, chips, lines: own } of PG.Interpreter.blame(level, result, report)) {
+      const text = level.requirements.find((r) => r.id === id).text;
+      for (const chip of chips) (byChip[chip] = byChip[chip] || []).push(text);
+      lines.push(...own);
+    }
+    builder.setBlame(byChip);
+    output.markLines(lines);
+    app.dataset.phase = 'result';
+    builder.setLocked(false);
+    measurePinned();
+    // On a small screen the revealed brief may be too tall to stay pinned: bring it into view.
+    if (briefPane.classList.contains('is-too-tall')) briefPane.scrollIntoView({ block: 'start' });
+  }
+
+  // Retry: same chips, back to the builder, with the brief's marks cleared. The chips and report
+  // lines behind each miss stay marked until they change or the next Run.
+  function retry() {
+    app.dataset.phase = 'compose';
+    brief.reset();
+    measurePinned();
+    const smooth = !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    document.querySelector('.pane--builder').scrollIntoView({ block: 'start', behavior: smooth ? 'smooth' : 'auto' });
+    builder.focusPrompt();
+  }
+
+  // Changing a chip after the reveal is a retry too.
+  function changed() {
+    if (app.dataset.phase !== 'result') return;
+    app.dataset.phase = 'compose';
+    brief.reset();
+    measurePinned();
   }
 
   // Run can sit below the output (always on narrow screens), so the build would happen off
@@ -80,6 +133,7 @@
   const pinnedHeight = (el) => (getComputedStyle(el).position === 'sticky' ? el.offsetHeight : 0);
   const besideOutput = () => briefPane.getBoundingClientRect().right <= outputPane.getBoundingClientRect().left;
   const measurePinned = () => {
+    briefPane.classList.toggle('is-too-tall', !besideOutput() && briefPane.offsetHeight > window.innerHeight * 0.55);
     rootStyle.setProperty('--pinned-top', `${besideOutput() ? 0 : pinnedHeight(briefPane)}px`);
     rootStyle.setProperty('--pinned-bottom', `${pinnedHeight(runArea)}px`);
     output.refit(); // stacked, the phone frame is sized to fit under the pinned brief

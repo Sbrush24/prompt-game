@@ -35,7 +35,8 @@
   --accent-wash: #e1eef7;
   --go: #f0e442; /* Okabe-Ito yellow: Run, drop targets on the dark rail */
   --go-edge: #b8ae1e;
-  --unmet: #d55e00; /* Okabe-Ito vermillion: used by the reveal in pass 4 */
+  --met: #0072b2; /* Okabe-Ito blue: met, on the reveal; always with a glyph, a word and a solid edge */
+  --unmet: #d55e00; /* Okabe-Ito vermillion: not met, or behind a miss; always with a glyph and a dashed edge */
 
   --focus: var(--accent);
   --font: "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
@@ -232,6 +233,153 @@ button {
   line-height: 1.3;
 }
 
+/* After a Run each item becomes a tick box; after Check it shows the truth beside the call. */
+.pane--brief [data-state="plain"] .req-box,
+.pane--brief [data-state="plain"] .brief-footer {
+  display: none;
+}
+
+.req-label {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.pane--brief [data-state="marking"] .req-label {
+  cursor: pointer;
+}
+
+.req-box {
+  flex: none;
+  display: grid;
+  place-content: center;
+  width: 22px;
+  height: 22px;
+  margin: 0;
+  background: #ffffff;
+  border: 2px solid var(--ink);
+  border-radius: 5px;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.req-box::before {
+  content: "✓";
+  visibility: hidden;
+  color: #ffffff;
+  font-size: 15px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.req-box:checked {
+  background: var(--ink);
+}
+
+.req-box:checked::before {
+  visibility: visible;
+}
+
+.pane--brief [data-state="waiting"] .req-box {
+  opacity: 0.45;
+}
+
+.req-outcome {
+  margin-top: 4px;
+  font-size: 0.875rem;
+}
+
+.req-outcome:empty,
+.req-seen:empty {
+  display: none;
+}
+
+.req-glyph {
+  font-weight: 800;
+}
+
+.req.is-met .req-glyph {
+  color: var(--met);
+}
+
+.req.is-unmet .req-glyph {
+  color: var(--unmet);
+}
+
+.req-call {
+  margin-left: 4px;
+  font-weight: 800;
+}
+
+/* The lesson's moment: ticked, but not met. */
+.req[data-call="missed"] .req-call {
+  text-decoration: underline 3px var(--unmet);
+  text-underline-offset: 3px;
+}
+
+.req-seen {
+  color: var(--ink-soft);
+  font-size: 0.875rem;
+  font-weight: 400;
+}
+
+.req.is-met,
+.req.is-unmet {
+  padding-left: 10px;
+  border-left: 4px solid var(--met);
+}
+
+.req.is-unmet {
+  border-left-style: dashed;
+  border-left-color: var(--unmet);
+}
+
+.brief-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+  margin-top: 8px;
+  padding-top: 10px;
+  border-top: 1px solid var(--ticket-line);
+}
+
+.brief-say {
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+/* Approved: stamped on the ticket in the met colour. */
+.brief-say.is-approved {
+  padding: 2px 10px;
+  border: 3px solid var(--met);
+  border-radius: 6px;
+  color: var(--met);
+  font-size: 1.25rem;
+  font-weight: 800;
+  transform: rotate(-4deg);
+}
+
+.brief-action {
+  --focus: var(--accent);
+  min-height: 44px;
+  padding: 0 18px;
+  background: var(--ink);
+  border: 0;
+  border-radius: 9px;
+  color: #ffffff;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.brief-action[aria-disabled="true"] {
+  background: transparent;
+  box-shadow: inset 0 0 0 2px var(--ink-soft);
+  color: var(--ink-soft);
+  cursor: not-allowed;
+}
+
 /* On one column the brief becomes a compact strip pinned to the top, so it stays in view.
    (On very short screens, e.g. phone landscape at high zoom, it scrolls rather than fill them.) */
 @media (max-width: 1279.98px) {
@@ -268,6 +416,11 @@ button {
     display: none;
   }
 
+  /* Once there is a build to check, the strip keeps its room for the checklist. */
+  .pane--brief [data-state]:not([data-state="plain"]) .ticket-client {
+    display: none;
+  }
+
   .reqs {
     margin-top: 4px;
     display: grid;
@@ -279,6 +432,21 @@ button {
     padding: 6px 0;
     font-size: 0.9375rem;
     line-height: 1.25;
+  }
+
+  .req-outcome,
+  .req-seen {
+    font-size: 0.8125rem;
+    line-height: 1.2;
+  }
+
+  .req-outcome {
+    margin-top: 2px;
+  }
+
+  .brief-footer {
+    margin-top: 4px;
+    padding-top: 6px;
   }
 
   /* Until something is built, empty frames would only push the builder off screen. */
@@ -296,6 +464,12 @@ button {
   .pane--brief {
     position: sticky;
     top: 0;
+  }
+
+  /* Pinned, a brief that has grown past half the screen (a small phone, after the reveal)
+     would leave too little to scroll through, so it moves with the page (main.js). */
+  .pane--brief.is-too-tall {
+    position: static;
   }
 }
 
@@ -584,6 +758,24 @@ button {
   gap: 4px;
   margin: 0;
   padding-left: 1.25em;
+}
+
+/* A report line behind a miss: where the AI's own default stood. */
+.report-line.is-blamed {
+  position: relative;
+  list-style: none;
+  border-radius: 4px;
+  outline: 2px dashed var(--unmet);
+  outline-offset: 2px;
+}
+
+.report-line.is-blamed::before {
+  content: "✗";
+  content: "✗" / "";
+  position: absolute;
+  left: -1.25em;
+  color: var(--unmet);
+  font-weight: 800;
 }
 
 /* ---------------------------------------------------------------- the page the AI built
@@ -1131,6 +1323,38 @@ button {
    chips keep full strength, since they are the prompt being built. */
 .is-locked .chip {
   cursor: default;
+}
+
+/* A chip behind a miss, after a check: a dashed ring and a cross, until it moves or the next build. */
+.chip.is-blamed {
+  position: relative;
+}
+
+.chip.is-blamed::after {
+  content: "";
+  position: absolute;
+  inset: -6px;
+  border: 2px dashed var(--unmet);
+  border-radius: 11px;
+  pointer-events: none;
+}
+
+.chip.is-blamed::before {
+  content: "✗";
+  content: "✗" / "";
+  position: absolute;
+  top: -12px;
+  right: -10px;
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  background: var(--unmet);
+  border-radius: 50%;
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1;
 }
 
 .is-locked .chip:hover {

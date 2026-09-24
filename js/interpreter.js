@@ -4,7 +4,11 @@
    Every property starts at the AI's own default. Each placed fragment's effects are then
    applied in order of (strength, slot, fragment order), so the last write wins: explicit beats
    vague beats implied beats default, and ties go to the fragment later in the sentence.
-   Nothing here knows about forms, phones or buttons; that all lives in the level data. */
+   Nothing here knows about forms, phones or buttons; that all lives in the level data.
+
+   For each property it also records the `cause`: the chip whose write last changed its value,
+   or 'default' if no chip changed it. A write that repeats the value already there changes
+   nothing, so taking out the cause, and only the cause, would change what was built. */
 (function (PG) {
   'use strict';
 
@@ -19,7 +23,7 @@
     const why = {};
     for (const [prop, def] of Object.entries(level.vocabulary)) {
       spec[prop] = def.default;
-      why[prop] = { source: 'default', strength: 'default' };
+      why[prop] = { source: 'default', strength: 'default', cause: 'default' };
     }
 
     const effects = [];
@@ -31,8 +35,9 @@
     }
     effects.sort((a, b) => compareKeys(a.key, b.key));
     for (const { prop, value, strength, source } of effects) {
+      const cause = value === spec[prop] ? why[prop].cause : source;
       spec[prop] = value;
-      why[prop] = { source, strength };
+      why[prop] = { source, strength, cause };
     }
 
     const requirements = level.requirements.map((req) => ({ id: req.id, met: req.met(spec) === true }));
@@ -47,6 +52,18 @@
       if (text) lines.push({ id: line.id, reads: line.reads, text });
     }
     return { opener: level.report.opener(result.spec), lines, closer: level.report.closer };
+  }
+
+  // Who is behind each missed requirement: the chips that changed a property it reads, or,
+  // where the AI's own default stands, the report lines in which the AI describes that choice.
+  function blame(level, result, reported) {
+    const missed = result.requirements.filter((r) => !r.met).map((r) => level.requirements.find((q) => q.id === r.id));
+    return missed.map((req) => {
+      const chips = [...new Set(req.reads.map((prop) => result.why[prop].cause).filter((cause) => cause !== 'default'))];
+      const own = req.reads.filter((prop) => result.why[prop].cause === 'default');
+      const lines = reported.lines.filter((line) => line.reads.some((prop) => own.includes(prop))).map((line) => line.id);
+      return { id: req.id, chips, lines };
+    });
   }
 
   // The prompt as the player wrote it, e.g. "build me a contact form, make it nice".
@@ -142,5 +159,5 @@
     return out;
   }
 
-  PG.Interpreter = { interpret, report, promptText, allPrompts, validateLevel, RANK };
+  PG.Interpreter = { interpret, report, blame, promptText, allPrompts, validateLevel, RANK };
 })(globalThis.PG = globalThis.PG || {});

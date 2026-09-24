@@ -107,6 +107,10 @@
     let drag = null;
     let suppressClick = false;
 
+    // Chips behind a missed brief item, after a check: fragment id -> the items it caused.
+    // A chip keeps its mark until it leaves its socket or the next build.
+    const blamed = new Map();
+
     const chipEls = {};
     const homeEls = {};
     const socketEls = {};
@@ -205,10 +209,13 @@
         const at = Placement.locate(state, frag.id);
         if (!at && chip.parentNode !== home) home.append(chip);
         home.classList.toggle('is-empty', !!at);
+        if (!at) blamed.delete(frag.id);
+        chip.classList.toggle('is-blamed', blamed.has(frag.id));
         if (at) {
           // While a chip for another slot is picked up, placed chips are not targets.
           const inert = !!sel && sel.slot !== frag.slot;
-          const where = `${frag.text}, in ${slotName(frag.slot)}`;
+          const behind = blamed.has(frag.id) ? `, behind a miss: ${joinWords(blamed.get(frag.id))}` : '';
+          const where = `${frag.text}, in ${slotName(frag.slot)}${behind}`;
           chip.removeAttribute('aria-pressed');
           chip.setAttribute('aria-disabled', String(locked || inert));
           chip.setAttribute('aria-label', !sel ? `${where}. Press to take it out`
@@ -498,6 +505,17 @@
       get state() { return state; },
       placed: () => Placement.placed(state, level),
       isReady: () => Placement.isReady(state, level),
+      // Mark the chips behind missed brief items: { fragId: ['Works on a phone', ...] }.
+      setBlame(byChip) {
+        blamed.clear();
+        for (const [id, items] of Object.entries(byChip)) blamed.set(id, items);
+        sync();
+      },
+      // Put keyboard focus on the first chip of the prompt, or the first chip of all.
+      focusPrompt() {
+        const first = Placement.placed(state, level)[0] || level.fragments[0].id;
+        chipEls[first].focus({ preventScroll: true });
+      },
       // While locked nothing moves and Run is off; `hint` says why, beside Run.
       setLocked(value, hint = '') {
         locked = !!value;

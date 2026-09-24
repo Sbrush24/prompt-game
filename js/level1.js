@@ -116,7 +116,8 @@
           reads: FORM_FIELDS.filter((f) => !f.secret).map((f) => f.prop),
           say(spec, why) {
             const shown = FORM_FIELDS.filter((f) => !f.secret && spec[f.prop]).map((f) => f.label.toLowerCase());
-            const trimmed = FORM_FIELDS.some((f) => !f.secret && !spec[f.prop] && why[f.prop].strength === 'vague');
+            // Only when a chip really took a field away, not when it asked for one to stay off.
+            const trimmed = FORM_FIELDS.some((f) => !f.secret && !spec[f.prop] && why[f.prop].cause !== 'default');
             return trimmed
               ? `Streamlined it to the essentials: ${listWords(shown)}. Shorter forms get more replies.`
               : `Kept the fields focused: ${listWords(shown)}.`;
@@ -163,16 +164,22 @@
     },
 
     // The client's brief. Each check reads only the build spec, never the fragments,
-    // so any prompt that produces the right form passes.
+    // so any prompt that produces the right form passes. `seen` is what the page shows for
+    // that item, in plain words: the note the reveal puts beside it. It says what is there,
+    // never why, and never where a fix would go.
     requirements: [
       { id: 'phone', text: 'Asks for a phone number', reads: ['field.phone'],
-        met: (spec) => spec['field.phone'] === true },
+        met: (spec) => spec['field.phone'] === true,
+        seen: (spec) => (spec['field.phone'] ? 'Has a phone field' : 'No phone field') },
       { id: 'noAccount', text: 'No account required', reads: ['field.password'],
-        met: (spec) => spec['field.password'] === false },
+        met: (spec) => spec['field.password'] === false,
+        seen: (spec) => (spec['field.password'] ? 'Asks for a password' : 'No password field') },
       { id: 'mobile', text: 'Works on a phone', reads: ['layout'],
-        met: (spec) => spec.layout === 'stacked' || spec.layout === 'fluid' },
+        met: (spec) => spec.layout === 'stacked' || spec.layout === 'fluid',
+        seen: (spec) => (spec.layout === 'stacked' || spec.layout === 'fluid' ? 'Fits the phone screen' : 'Too wide for the phone') },
       { id: 'button', text: 'Button says exactly “Get a quote”', reads: ['submitLabel'],
-        met: (spec) => spec.submitLabel === 'Get a quote' },
+        met: (spec) => spec.submitLabel === 'Get a quote',
+        seen: (spec) => `Button says “${spec.submitLabel}”` },
     ],
   };
 })(globalThis.PG = globalThis.PG || {});
