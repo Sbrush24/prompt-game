@@ -102,6 +102,8 @@
     let state = Placement.create(level);
     let selected = null; // fragment id picked up by tap or keyboard
     let locked = false;
+    let lockedHint = ''; // why Run is off while the builder is locked, e.g. mid-build
+    let lockedHintSaid = false; // said once per lock, however often Run or a chip is pressed
     let drag = null;
     let suppressClick = false;
 
@@ -221,7 +223,9 @@
 
       const missing = Placement.missingRequired(state, level);
       runBtn.setAttribute('aria-disabled', String(missing.length > 0 || locked));
-      runHint.textContent = missing.length ? `Add ${joinWords(missing.map((s) => withArticle(s.name)))} to run` : '';
+      runHint.textContent = locked ? lockedHint
+        : missing.length ? `Add ${joinWords(missing.map((s) => withArticle(s.name)))} to run`
+        : '';
       root.classList.toggle('has-selection', !!sel);
       root.classList.toggle('is-locked', locked);
     }
@@ -271,7 +275,10 @@
       const button = event.target.closest('button');
       const fromKeyboard = event.detail === 0;
       if (button && button === runBtn) return run();
-      if (locked) return;
+      if (locked) {
+        if (event.target.closest('.chip, .socket')) sayLockedHint();
+        return;
+      }
 
       // Anywhere inside a socket that takes the picked-up chip places it there: the empty
       // socket, the chip already in it (a swap), or the padding around either.
@@ -336,8 +343,14 @@
       window.addEventListener('pointerdown', disarm, true); // never outlive the gesture it belongs to
     }
 
+    function sayLockedHint() {
+      if (!lockedHint || lockedHintSaid) return;
+      lockedHintSaid = true;
+      announce(lockedHint);
+    }
+
     function run() {
-      if (locked) return;
+      if (locked) return sayLockedHint();
       if (!Placement.isReady(state, level)) {
         announce(runHint.textContent);
         return;
@@ -466,6 +479,10 @@
 
     root.addEventListener('click', onClickCapture, true);
     root.addEventListener('click', onClick);
+    // A held Enter repeats; one press is one Run, not a build and then another over its report.
+    runBtn.addEventListener('keydown', (event) => {
+      if (event.repeat && (event.key === 'Enter' || event.key === ' ')) event.preventDefault();
+    });
     root.addEventListener('pointerdown', onPointerDown);
     root.addEventListener('contextmenu', (event) => {
       if (event.target.closest('.chip')) event.preventDefault(); // long-press menus fight the touch drag
@@ -481,8 +498,12 @@
       get state() { return state; },
       placed: () => Placement.placed(state, level),
       isReady: () => Placement.isReady(state, level),
-      setLocked(value) {
+      // While locked nothing moves and Run is off; `hint` says why, beside Run.
+      setLocked(value, hint = '') {
         locked = !!value;
+        lockedHint = locked ? hint : '';
+        lockedHintSaid = false;
+        if (!locked) status.textContent = '';
         if (locked) {
           endDrag();
           selected = null;

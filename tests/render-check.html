@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Render check: level 1</title>
+  <!-- Open this file in a browser. It builds every prompt the player can make, draws the page
+       in both device frames, and checks that what is on screen agrees with the grader:
+       a brief item passes exactly when a person looking at the page would say it does. -->
+  <link rel="stylesheet" href="../css/styles.css">
+  <style>
+    .check { max-width: 900px; margin: 0 auto; padding: 24px 16px; }
+    .check h1 { font-size: 1.5rem; margin-bottom: 8px; }
+    .check-summary { font-size: 1.125rem; font-weight: 700; }
+    .check-summary[data-ok="true"]::before { content: "✓ "; color: var(--accent); }
+    .check-summary[data-ok="false"]::before { content: "✗ "; color: var(--unmet); }
+    .check-list { margin-top: 16px; padding-left: 1.25em; }
+    .check-list li { margin-top: 6px; }
+    .check-stage { position: absolute; top: 0; left: -20000px; }
+    .check-stage .viewport { margin-bottom: 20px; }
+  </style>
+  <script defer src="../js/dom.js"></script>
+  <script defer src="../js/level1.js"></script>
+  <script defer src="../js/interpreter.js"></script>
+  <script defer src="../js/renderer.js"></script>
+</head>
+<body>
+  <main class="check">
+    <h1>Render check: level 1</h1>
+    <p class="check-summary" id="summary" role="status">Checking…</p>
+    <ul class="check-list" id="problems"></ul>
+  </main>
+  <div class="check-stage" id="stage" aria-hidden="true"></div>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const { levels, Interpreter, Renderer } = globalThis.PG;
+      const level = Interpreter.validateLevel(levels.level1);
+      const stage = document.getElementById('stage');
+      const problems = [];
+
+      // Everything below reads the page, never the spec: it is what a person would see.
+      const inside = (box, rect) => rect.left >= box.left - 0.5 && rect.right <= box.right + 0.5
+        && rect.top >= box.top - 0.5 && rect.bottom <= box.bottom + 0.5 && rect.width > 0 && rect.height > 0;
+
+      function draw(device, spec) {
+        const size = Renderer.DEVICES[device];
+        const viewport = PG.dom.el('div', `viewport viewport--${device}`);
+        viewport.style.width = `${size.width}px`;
+        viewport.style.height = `${size.height}px`;
+        viewport.append(Renderer.page(level, spec).site);
+        stage.append(viewport);
+        return viewport;
+      }
+
+      function look(viewport) {
+        const box = viewport.getBoundingClientRect();
+        const parts = [...viewport.querySelectorAll('.part')];
+        const fields = [...viewport.querySelectorAll('.field')];
+        const button = viewport.querySelector('.form-button');
+        return {
+          wholePageShows: viewport.scrollWidth <= viewport.clientWidth + 1
+            && viewport.scrollHeight <= viewport.clientHeight + 1
+            && parts.every((p) => inside(box, p.getBoundingClientRect())),
+          fields: fields.filter((f) => inside(box, f.getBoundingClientRect()))
+            .map((f) => f.querySelector('.field-label').textContent.replace(/\s*\*$/, '')),
+          allFields: fields.map((f) => f.querySelector('.field-label').textContent.replace(/\s*\*$/, '')),
+          buttonShows: !!button && inside(box, button.getBoundingClientRect()),
+          buttonText: button ? button.textContent : null,
+          lowest: Math.max(...parts.map((p) => p.getBoundingClientRect().bottom)) - box.top,
+          // Words the right-hand edge runs through: what makes a too-wide page look cut off,
+          // rather than like a neat narrow page that happens to leave things out.
+          cutWords: [...viewport.querySelectorAll('.form-heading, .field-label, .form-button')].filter((node) => {
+            const range = document.createRange();
+            range.selectNodeContents(node);
+            const text = range.getBoundingClientRect();
+            return text.left < box.right - 1 && text.right > box.right + 1;
+          }).length,
+        };
+      }
+
+      // How a person checks each brief item against the page.
+      const byEye = {
+        phone: (desktop) => desktop.fields.includes('Phone'),
+        noAccount: (desktop) => !desktop.allFields.includes('Password'),
+        mobile: (desktop, phone) => phone.wholePageShows,
+        button: (desktop) => desktop.buttonShows && desktop.buttonText === 'Get a quote',
+      };
+
+      const prompts = Interpreter.allPrompts(level);
+      for (const ids of prompts) {
+        const result = Interpreter.interpret(level, ids);
+        const onDesktop = draw('desktop', result.spec);
+        const onPhone = draw('phone', result.spec);
+        const desktop = look(onDesktop);
+        const phone = look(onPhone);
+        const name = Interpreter.promptText(level, ids);
+
+        if (!desktop.wholePageShows) problems.push(`${name}: part of the page is cut off on the desktop`);
+        if (phone.lowest > Renderer.DEVICES.phone.page) problems.push(`${name}: the page runs below the part of the phone screen kept in view`);
+        if (!phone.wholePageShows && phone.cutWords === 0) problems.push(`${name}: too wide for the phone, but no words are visibly cut at its edge`);
+        if (desktop.allFields.join() !== phone.allFields.join() || desktop.buttonText !== phone.buttonText) {
+          problems.push(`${name}: the desktop and phone show different pages`);
+        }
+        for (const { id, met } of result.requirements) {
+          if (!byEye[id]) { problems.push(`${name}: no by-eye check for "${id}"`); continue; }
+          const seen = byEye[id](desktop, phone);
+          if (seen !== met) problems.push(`${name}: "${id}" is graded ${met ? 'met' : 'missed'} but looks ${seen ? 'met' : 'missed'}`);
+        }
+        onDesktop.remove();
+        onPhone.remove();
+      }
+
+      if (prompts.length === 0) problems.push('no builds were drawn');
+      const summary = document.getElementById('summary');
+      const ok = problems.length === 0;
+      summary.dataset.ok = String(ok);
+      summary.textContent = ok
+        ? `All ${prompts.length} builds look exactly as they are graded.`
+        : `${problems.length} problems across ${prompts.length} builds.`;
+      const list = document.getElementById('problems');
+      for (const p of problems) list.append(PG.dom.el('li', null, p));
+      document.documentElement.dataset.check = ok ? 'pass' : 'fail';
+      globalThis.renderCheck = { total: prompts.length, problems };
+    });
+  </script>
+</body>
+</html>
