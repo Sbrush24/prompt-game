@@ -1,0 +1,2 @@
+# The test compares this file byte for byte, so keep LF on every checkout.
+tests/outcomes.snapshot.json text eol=lf
