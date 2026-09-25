@@ -244,8 +244,10 @@
 
     function commitPlace(id, slotId, index, fromKeyboard) {
       const displaced = state.sockets[slotId][index];
-      state = Placement.place(state, level, id, slotId, index);
+      const next = Placement.place(state, level, id, slotId, index);
       selected = null;
+      if (next === state) return sync(); // dropped back on its own socket: nothing happened
+      state = next;
       sync();
       let message = `“${textOf(id)}” placed in ${slotName(slotId)}.`;
       if (displaced && displaced !== id && !Placement.locate(state, displaced)) {
@@ -449,8 +451,12 @@
 
       drag.chip.classList.add('is-lifted');
       document.documentElement.classList.add('is-dragging-chip');
+      // Every socket of the chip's slot takes it, bar the one it is lifted from.
       const slotId = fragmentById(level, drag.id).slot;
-      for (const socket of socketEls[slotId]) socket.classList.add('is-droppable');
+      const from = Placement.locate(state, drag.id);
+      socketEls[slotId].forEach((socket, i) => {
+        if (!from || from.index !== i) socket.classList.add('is-droppable');
+      });
       moveGhost();
     }
 
@@ -486,10 +492,6 @@
 
     root.addEventListener('click', onClickCapture, true);
     root.addEventListener('click', onClick);
-    // A held Enter repeats; one press is one Run, not a build and then another over its report.
-    runBtn.addEventListener('keydown', (event) => {
-      if (event.repeat && (event.key === 'Enter' || event.key === ' ')) event.preventDefault();
-    });
     root.addEventListener('pointerdown', onPointerDown);
     root.addEventListener('contextmenu', (event) => {
       if (event.target.closest('.chip')) event.preventDefault(); // long-press menus fight the touch drag

@@ -125,7 +125,14 @@
         }
         setState('plain');
       },
-      focusFirstBox() { rows[0].box.focus({ preventScroll: true }); },
+      // Without scrolling the build out of view, unless the box itself is out of view (a very
+      // short screen, where the brief scrolls with the page).
+      focusFirstBox() {
+        const { box } = rows[0];
+        box.focus({ preventScroll: true });
+        const { top, bottom } = box.getBoundingClientRect();
+        if (top < 0 || bottom > window.innerHeight) box.scrollIntoView({ block: 'nearest' });
+      },
     };
   }
 

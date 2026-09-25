@@ -193,6 +193,11 @@ button {
     position: sticky;
     top: var(--gutter);
   }
+
+  /* Taller than the window (a short one, after the reveal), it moves with the page (main.js). */
+  .pane--brief.is-too-tall {
+    position: static;
+  }
 }
 
 .ticket {
@@ -581,6 +586,7 @@ button {
 }
 
 .phone-body {
+  --focus: var(--go); /* the screen's focus ring sits on the dark bezel */
   padding: 10px; /* renderer.js DEVICES.phone.bezel */
   background: var(--rail);
   border-radius: 36px;
@@ -604,6 +610,13 @@ button {
   overscroll-behavior-x: contain;
   scrollbar-width: none;
   border-radius: 26px;
+}
+
+/* The frame is scaled down, and its focus ring with it: undo the scale so the ring stays 3px,
+   drawn inside the bezel. */
+.viewport--phone:focus-visible {
+  outline-width: calc(3px / var(--s, 1));
+  outline-offset: calc(2px / var(--s, 1));
 }
 
 .viewport--phone::-webkit-scrollbar {
@@ -1148,6 +1161,7 @@ button {
 }
 
 .socket {
+  position: relative;
   flex: 1 1 110px;
   min-width: 0;
   min-height: 62px;
@@ -1182,15 +1196,23 @@ button {
   cursor: pointer;
 }
 
-/* A full socket that can take the picked-up chip says so; screen readers get "Press to swap in …" instead. */
+/* A full socket that can take the picked-up chip says so; screen readers get "Press to swap in …" instead.
+   The label sits on the socket's top edge, out of the flow, so a chip that fills the socket
+   cannot push it onto a line of its own and make the rail grow under the pointer. */
 .socket.is-filled.is-target::after,
 .socket.is-filled.is-droppable::after {
   content: "Swap here";
   content: "Swap here" / "";
-  margin-left: auto;
+  position: absolute;
+  top: -0.8em;
+  right: 6px;
   padding: 0 6px;
+  background: var(--rail);
+  border-radius: 6px;
   color: var(--go);
+  font-size: 0.8125rem;
   font-weight: 700;
+  line-height: 1.4;
 }
 
 .socket-empty {
@@ -1498,5 +1520,52 @@ button {
   *::after {
     transition-duration: 0.01ms !important;
     animation-duration: 0.01ms !important;
+  }
+}
+
+/* ---------------------------------------------------------------- Windows Contrast mode
+   Forced colours drop backgrounds and shadows, which is how the frames, the progress bar, Run
+   and the picked-up chip are drawn: give each an edge in system colours instead. The built
+   page is the client's website, the thing being judged, so it keeps its own colours. */
+
+@media (forced-colors: active) {
+  .viewport,
+  .phone-cue {
+    forced-color-adjust: none;
+  }
+
+  .frame--desktop .frame-scaler,
+  .phone-body {
+    border: 1px solid CanvasText;
+  }
+
+  .build-track {
+    border: 1px solid CanvasText;
+  }
+
+  .build-fill {
+    background: Highlight;
+    forced-color-adjust: none;
+  }
+
+  .run,
+  .brief-action {
+    border: 2px solid ButtonText;
+  }
+
+  .run[aria-disabled="true"],
+  .brief-action[aria-disabled="true"] {
+    border-color: GrayText;
+    color: GrayText;
+  }
+
+  .chip[aria-pressed="true"] {
+    outline: 3px solid Highlight;
+    outline-offset: 2px;
+  }
+
+  .socket.is-target,
+  .socket.is-droppable {
+    border-color: Highlight;
   }
 }

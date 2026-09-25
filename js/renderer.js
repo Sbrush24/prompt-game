@@ -208,6 +208,7 @@
       // below it jumps when it lands. Hidden text is neither read out nor found by search.
       const reserve = el('div', 'said-reserve');
       reserve.append(...reportNodes(el, report));
+      aiSaid.setAttribute('aria-live', 'polite'); // markLines silenced it after the last check
       aiSaid.replaceChildren(el('p', 'said-idle said-building', 'Building…'), reserve);
       // Back to empty at once: a bar sliding back from the last build would read as undoing work.
       fill.style.transition = 'none';
@@ -250,7 +251,10 @@
       build,
       refit: fit, // call when the pinned bars change height
       // Mark the report lines behind missed brief items: where the AI's own default stood.
+      // The report is a live region for the build; the marks are not news on their own (the
+      // brief announces the result), so stop it speaking before they go in.
       markLines(ids) {
+        aiSaid.setAttribute('aria-live', 'off');
         for (const line of aiSaid.querySelectorAll('.report-line')) {
           const behind = ids.includes(line.dataset.line);
           line.classList.toggle('is-blamed', behind);

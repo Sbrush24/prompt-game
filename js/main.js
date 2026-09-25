@@ -22,7 +22,16 @@
   const builder = PG.Builder.mount(document.getElementById('builder-body'), level, { onRun: run, onChange: changed });
 
   app.dataset.phase = 'compose';
-  let current = null; // the build being reviewed: { result, report }
+  let current = null; // the build being reviewed: { result, report, placed }
+
+  // A held Enter repeats, and each repeat clicks whatever button has focus by then. One press
+  // is one action: not Run and then another over its report, nor Check, then Retry, then a
+  // chip taken out and put back as focus moves on.
+  document.addEventListener('keydown', (event) => {
+    if (event.repeat && (event.key === 'Enter' || event.key === ' ') && event.target.closest('button')) {
+      event.preventDefault();
+    }
+  }, true);
 
   function run() {
     if (app.dataset.phase === 'building' || app.dataset.phase === 'review') return;
@@ -32,7 +41,7 @@
     const prompt = PG.Interpreter.promptText(level, placed);
     const report = PG.Interpreter.report(level, result);
 
-    current = { result, report };
+    current = { result, report, placed };
     const runHadFocus = document.activeElement === document.querySelector('.run');
     app.dataset.phase = 'building';
     app.dataset.built = 'true';
@@ -76,8 +85,12 @@
     app.dataset.phase = 'result';
     builder.setLocked(false);
     measurePinned();
-    // On a small screen the revealed brief may be too tall to stay pinned: bring it into view.
-    if (briefPane.classList.contains('is-too-tall')) briefPane.scrollIntoView({ block: 'start' });
+    // The revealed brief may be too tall to stay pinned. Stacked, bring the brief into view;
+    // wide, where it is taller than the window, bring its verdict and Retry into view.
+    if (briefPane.classList.contains('is-too-tall')) {
+      if (besideOutput()) briefPane.querySelector('.brief-footer').scrollIntoView({ block: 'nearest' });
+      else briefPane.scrollIntoView({ block: 'start' });
+    }
   }
 
   // Retry: same chips, back to the builder, with the brief's marks cleared. The chips and report
@@ -91,9 +104,11 @@
     builder.focusPrompt();
   }
 
-  // Changing a chip after the reveal is a retry too.
+  // Changing a chip after the reveal is a retry too. A move that leaves the prompt as it was
+  // (a chip dragged to the empty socket beside it) keeps the reveal.
   function changed() {
     if (app.dataset.phase !== 'result') return;
+    if (builder.placed().join() === current.placed.join()) return;
     app.dataset.phase = 'compose';
     brief.reset();
     measurePinned();
@@ -126,14 +141,18 @@
 
   // Publish the heights of whichever bars are pinned, for the scroll-padding in styles.css,
   // so keyboard focus never lands hidden underneath them. Wide, the brief is pinned in its own
-  // column beside everything else, so it covers nothing at the top.
+  // column beside everything else, so it covers nothing at the top; it unpins only when it is
+  // taller than the window, since a pinned brief would then hide its own foot.
   const briefPane = document.querySelector('.pane--brief');
   const outputPane = document.querySelector('.pane--output');
   const runArea = document.querySelector('.run-area');
   const pinnedHeight = (el) => (getComputedStyle(el).position === 'sticky' ? el.offsetHeight : 0);
   const besideOutput = () => briefPane.getBoundingClientRect().right <= outputPane.getBoundingClientRect().left;
   const measurePinned = () => {
-    briefPane.classList.toggle('is-too-tall', !besideOutput() && briefPane.offsetHeight > window.innerHeight * 0.55);
+    const tooTall = besideOutput()
+      ? (parseFloat(getComputedStyle(briefPane).top) || 0) + briefPane.offsetHeight > window.innerHeight
+      : briefPane.offsetHeight > window.innerHeight * 0.55;
+    briefPane.classList.toggle('is-too-tall', tooTall);
     rootStyle.setProperty('--pinned-top', `${besideOutput() ? 0 : pinnedHeight(briefPane)}px`);
     rootStyle.setProperty('--pinned-bottom', `${pinnedHeight(runArea)}px`);
     output.refit(); // stacked, the phone frame is sized to fit under the pinned brief
