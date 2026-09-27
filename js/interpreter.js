@@ -6,7 +6,7 @@
    vague beats implied beats default, and ties go to the fragment later in the sentence.
    Nothing here knows about forms, phones or buttons; that all lives in the level data.
 
-   For each property it also records the `cause`: the chip whose write last changed its value,
+   For each property it also records in `why` the `cause`: the chip whose write last changed its value,
    or 'default' if no chip changed it. A write that repeats the value already there changes
    nothing, so taking out the cause, and only the cause, would change what was built. */
 (function (PG) {
@@ -23,7 +23,7 @@
     const why = {};
     for (const [prop, def] of Object.entries(level.vocabulary)) {
       spec[prop] = def.default;
-      why[prop] = { source: 'default', strength: 'default', cause: 'default' };
+      why[prop] = { cause: 'default' };
     }
 
     const effects = [];
@@ -34,17 +34,17 @@
       });
     }
     effects.sort((a, b) => compareKeys(a.key, b.key));
-    for (const { prop, value, strength, source } of effects) {
-      const cause = value === spec[prop] ? why[prop].cause : source;
+    for (const { prop, value, source } of effects) {
+      if (value !== spec[prop]) why[prop] = { cause: source };
       spec[prop] = value;
-      why[prop] = { source, strength, cause };
     }
 
     const requirements = level.requirements.map((req) => ({ id: req.id, met: req.met(spec) === true }));
     return { placed, spec, why, requirements, passed: requirements.every((r) => r.met) };
   }
 
-  // What the AI says afterwards. Built from the resolved spec, so it always matches the build.
+  // What the AI says afterwards. Built from the resolved spec (and, where a line says so, from
+  // `why`: whether a chip changed a value), so it always matches the build.
   function report(level, result) {
     const lines = [];
     for (const line of level.report.lines) {
@@ -66,11 +66,15 @@
     });
   }
 
-  // The prompt as the player wrote it, e.g. "build me a contact form, make it nice".
+  // The prompt as the player wrote it, e.g. "build me a contact form, make it nice". Slots read
+  // in slot order; within a slot, chips read in the order given (the builder's socket order).
   function promptText(level, placedIds) {
+    const slotOrder = new Map(level.slots.map((s, i) => [s.id, i]));
+    const slotOf = (id) => slotOrder.get(level.fragments.find((f) => f.id === id).slot);
+    const ids = [...new Set(placedIds)].sort((a, b) => slotOf(a) - slotOf(b)); // a stable sort
     let text = '';
     let previous = null;
-    for (const id of canonical(level, placedIds)) {
+    for (const id of ids) {
       const frag = level.fragments.find((f) => f.id === id);
       const words = previous && previous.dropsNextArticle ? frag.text.replace(/^an? /, '') : frag.text;
       text += (previous ? frag.lead ?? ' ' : '') + words;
@@ -93,19 +97,29 @@
   // Throws on the first thing in the level data that would silently mis-grade a build.
   function validateLevel(level) {
     const fail = (message) => { throw new Error(`${level.id}: ${message}`); };
-    const declared = (prop) => Object.hasOwn(level.vocabulary, prop);
-    const slotIds = new Set(level.slots.map((s) => s.id));
-    const seen = new Set();
+    const declared = (prop) => has(level.vocabulary, prop);
+    const unique = (items, what) => {
+      const ids = new Set();
+      for (const { id } of items) {
+        if (ids.has(id)) fail(`duplicate ${what} id "${id}"`);
+        ids.add(id);
+      }
+      return ids;
+    };
+    const slotIds = unique(level.slots, 'slot');
+    unique(level.fragments, 'fragment');
+    unique(level.requirements, 'requirement');
+    unique(level.report.lines, 'report line');
+    if (level.requirements.length === 0) fail('the brief has no requirements, so every build would pass');
     for (const [prop, def] of Object.entries(level.vocabulary)) {
       if (!legal(def, def.default)) fail(`default for "${prop}" is not a legal value`);
     }
     for (const frag of level.fragments) {
-      if (seen.has(frag.id)) fail(`duplicate fragment id "${frag.id}"`);
-      seen.add(frag.id);
+      if (frag.id === 'default') fail('fragment id "default" is taken: it means "no chip" in blame');
       if (!slotIds.has(frag.slot)) fail(`fragment "${frag.id}" names unknown slot "${frag.slot}"`);
       for (const { prop, value, strength } of frag.effects) {
         if (!declared(prop)) fail(`fragment "${frag.id}" writes unknown property "${prop}"`);
-        if (!Object.hasOwn(RANK, strength) || strength === 'default') fail(`fragment "${frag.id}" has bad strength "${strength}"`);
+        if (!has(RANK, strength) || strength === 'default') fail(`fragment "${frag.id}" has bad strength "${strength}"`);
         if (!legal(level.vocabulary[prop], value)) fail(`fragment "${frag.id}" writes illegal value ${JSON.stringify(value)} to "${prop}"`);
       }
     }
@@ -121,18 +135,53 @@
       if (drawn.has(field.prop)) fail(`form field property "${field.prop}" is listed twice`);
       drawn.add(field.prop);
     }
-    // The checks, the report and the read-back are hand-written functions: run them once for
-    // every prompt, so a slip in one stops the page here instead of jamming a build later.
-    for (const ids of allPrompts(level)) {
+    // The checks, their notes, the report and the read-back are hand-written functions: run
+    // them once for every prompt, so a slip in one stops the page here instead of jamming a
+    // build later.
+    const prompts = allPrompts(level);
+    if (prompts.length === 0) fail('no prompt can be built: a required slot has no fragments');
+    for (const ids of prompts) {
+      const name = `"${ids.join(' + ')}"`;
+      let result;
       try {
-        report(level, interpret(level, ids));
+        result = interpret(level, ids);
+        blame(level, result, report(level, result));
         promptText(level, ids);
       } catch (error) {
-        fail(`building "${ids.join(' + ')}" throws: ${error.message}`);
+        fail(`building ${name} throws: ${error.message}`);
+      }
+      for (const req of level.requirements) {
+        const met = req.met(result.spec);
+        if (typeof met !== 'boolean') fail(`"${req.id}" met() gives ${JSON.stringify(met)} for ${name}, not true or false`);
+        let note;
+        try {
+          note = req.seen(result.spec);
+        } catch (error) {
+          fail(`"${req.id}" seen() throws for ${name}: ${error.message}`);
+        }
+        if (typeof note !== 'string' || note === '') fail(`"${req.id}" seen() gives no note for ${name}`);
+        // Blame trusts `reads`: changing any property it leaves out must never change the grade.
+        for (const [prop, def] of Object.entries(level.vocabulary)) {
+          if (req.reads.includes(prop)) continue;
+          for (const value of probeValues(def)) {
+            if (req.met({ ...result.spec, [prop]: value }) !== met) {
+              fail(`"${req.id}" depends on "${prop}", which its reads leave out`);
+            }
+          }
+        }
       }
     }
     return level;
   }
+
+  // Values to try a property at when checking what a requirement really reads.
+  function probeValues(def) {
+    if (def.type === 'bool') return [true, false];
+    if (def.type === 'enum') return def.values;
+    return [def.default, '', 'something else'];
+  }
+
+  const has = (object, key) => Object.prototype.hasOwnProperty.call(object, key); // Object.hasOwn needs Safari 15.4
 
   function legal(def, value) {
     if (def.type === 'bool') return typeof value === 'boolean';

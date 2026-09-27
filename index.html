@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Level 1: Vagueness has a cost</title>
   <meta name="description" content="Compose a prompt from fragments, then watch a simulated AI build a contact form from it.">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="css/styles.css">
   <script defer src="js/dom.js"></script>
   <script defer src="js/level1.js"></script>
@@ -15,7 +16,7 @@
   <script defer src="js/main.js"></script>
 </head>
 <body>
-  <div class="app" data-phase="compose" data-built="false">
+  <main class="app" data-phase="compose" data-built="false">
     <header class="masthead">
       <p class="level-number" id="level-number">Level 1</p>
       <h1 class="level-title" id="level-title">Vagueness has a cost</h1>
@@ -35,8 +36,12 @@
 
     <section class="pane pane--builder" aria-labelledby="builder-heading">
       <h2 class="pane-heading" id="builder-heading">Your prompt</h2>
-      <div class="builder" id="builder-body"></div>
+      <div class="builder" id="builder-body">
+        <!-- Replaced when the game starts. Shown only if it never does. -->
+        <p class="boot-failed">The game could not start. Try reloading the page, or open it in a current browser.</p>
+        <noscript><p>This game needs JavaScript. Turn it on and reload the page.</p></noscript>
+      </div>
     </section>
-  </div>
+  </main>
 </body>
 </html>

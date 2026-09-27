@@ -33,16 +33,16 @@
     }
   }, true);
 
-  function run() {
+  function run(_, { fromKeyboard = false } = {}) {
     if (app.dataset.phase === 'building' || app.dataset.phase === 'review') return;
     // Everything that can go wrong happens before the builder locks.
-    const placed = builder.placed();
-    const result = PG.Interpreter.interpret(level, placed);
-    const prompt = PG.Interpreter.promptText(level, placed);
+    const written = builder.written(); // as it sits on the rail; the build itself ignores order
+    const result = PG.Interpreter.interpret(level, written);
+    const prompt = PG.Interpreter.promptText(level, written);
     const report = PG.Interpreter.report(level, result);
 
-    current = { result, report, placed };
-    const runHadFocus = document.activeElement === document.querySelector('.run');
+    current = { result, report, written };
+    const runBtn = document.querySelector('.run');
     app.dataset.phase = 'building';
     app.dataset.built = 'true';
     builder.setLocked(true, 'Building…');
@@ -61,7 +61,9 @@
       app.dataset.phase = 'review';
       builder.setLocked(true, 'Check the brief first');
       brief.startReview(result);
-      if (runHadFocus) brief.focusFirstBox(); // keyboard: straight on to the next step
+      // Keyboard: straight on to the next step, unless the player went elsewhere meanwhile.
+      // (A click leaves focus on Run too, but moving it would scroll a mouse player's view.)
+      if (fromKeyboard && document.activeElement === runBtn) brief.focusFirstBox();
     }, (error) => {
       console.error(error);
       app.dataset.phase = 'compose';
@@ -108,7 +110,7 @@
   // (a chip dragged to the empty socket beside it) keeps the reveal.
   function changed() {
     if (app.dataset.phase !== 'result') return;
-    if (builder.placed().join() === current.placed.join()) return;
+    if (builder.written().join() === current.written.join()) return;
     app.dataset.phase = 'compose';
     brief.reset();
     measurePinned();
@@ -148,10 +150,15 @@
   const runArea = document.querySelector('.run-area');
   const pinnedHeight = (el) => (getComputedStyle(el).position === 'sticky' ? el.offsetHeight : 0);
   const besideOutput = () => briefPane.getBoundingClientRect().right <= outputPane.getBoundingClientRect().left;
+  // Stacked with the frames side by side (phone landscape), a pinned brief would squeeze them
+  // below their smallest readable size, so there it moves with the page too.
+  const FRAMES_MIN = 36 + 16 + 264 + 20; // progress line, gap, frames' floor (renderer.js), margins
   const measurePinned = () => {
+    const framesSide = document.getElementById('output-body').dataset.layout === 'side';
     const tooTall = besideOutput()
       ? (parseFloat(getComputedStyle(briefPane).top) || 0) + briefPane.offsetHeight > window.innerHeight
-      : briefPane.offsetHeight > window.innerHeight * 0.55;
+      : briefPane.offsetHeight > window.innerHeight * 0.55
+        || (framesSide && briefPane.offsetHeight + FRAMES_MIN > window.innerHeight);
     briefPane.classList.toggle('is-too-tall', tooTall);
     rootStyle.setProperty('--pinned-top', `${besideOutput() ? 0 : pinnedHeight(briefPane)}px`);
     rootStyle.setProperty('--pinned-bottom', `${pinnedHeight(runArea)}px`);

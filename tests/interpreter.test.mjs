@@ -1,7 +1,7 @@
 // Interpreter tests: every prompt the builder can produce, checked against the rules the lesson
 // depends on, plus a generated snapshot of every build and its grades, so a content edit shows
 // its full effect as a diff.
-// Run: node --test          After an intended change: node --test --test-update-snapshots
+// Run: npm test (Node 22.14+)    After an intended change: node --test --test-update-snapshots tests/*.test.mjs
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { fileURLToPath } from 'node:url';
@@ -35,6 +35,20 @@ test('a typo in the level data throws when the page loads', () => {
   assert.throws(broken((l) => { l.fragments[0].effects.push({ prop: 'submitLabel', value: 'x', strength: 'toString' }); }), /bad strength/);
   assert.throws(broken((l) => { l.fragments[0].effects.push({ prop: 'constructor', value: true, strength: 'explicit' }); }), /unknown property/);
   assert.throws(broken((l) => { l.fragments[0].effects.push({ prop: 'layout', value: 'wide', strength: 'explicit' }); }), /illegal value/);
+});
+
+test('a slip in the brief, the report or the ids throws when the page loads', () => {
+  const withReqs = (change) => () => I.validateLevel({ ...level, requirements: change(level.requirements.map((r) => ({ ...r }))) });
+  const mobile = (reqs) => reqs.find((r) => r.id === 'mobile');
+  assert.throws(withReqs((reqs) => { mobile(reqs).seen = (spec) => spec.layout.nope(); return reqs; }), /seen\(\) throws/);
+  assert.throws(withReqs((reqs) => { mobile(reqs).seen = () => ''; return reqs; }), /no note/);
+  assert.throws(withReqs((reqs) => { mobile(reqs).met = () => 'yes'; return reqs; }), /not true or false/);
+  assert.throws(withReqs((reqs) => { mobile(reqs).met = (spec) => spec.layout === 'fluid' && spec.theme !== 'fancy'; return reqs; }), /depends on "theme"/);
+  assert.throws(withReqs((reqs) => [...reqs, reqs[0]]), /duplicate requirement id/);
+  assert.throws(withReqs(() => []), /no requirements/);
+  assert.throws(() => I.validateLevel({ ...level, report: { ...level.report, lines: [...level.report.lines, level.report.lines[0]] } }), /duplicate report line id/);
+  assert.throws(() => I.validateLevel({ ...level, fragments: level.fragments.map((f) => (f.id === 'nice' ? { ...f, id: 'default' } : f)) }), /"default" is taken/);
+  assert.throws(() => I.validateLevel({ ...level, fragments: level.fragments.filter((f) => f.slot !== 'thing') }), /no prompt can be built/);
 });
 
 test('the builder can produce 144 distinct prompts', () => {
@@ -190,6 +204,11 @@ test('the prompt reads back as a sentence', () => {
   assert.equal(
     I.promptText(level, ['working', 'quote', 'fields', 'button', 'mobile']),
     'create a working quote request form with name, email, and phone fields, make the button say Get a quote, mobile friendly',
+  );
+  // Within a slot the chips read in the order they sit on the rail.
+  assert.equal(
+    I.promptText(level, ['build', 'contact', 'mobile', 'button']),
+    'build me a contact form, mobile friendly, make the button say Get a quote',
   );
 });
 

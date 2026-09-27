@@ -106,8 +106,9 @@
 
     // The AI's report after a build. Always confident, and only ever about its own choices:
     // it never saw the brief, so it never mentions it. Each line is keyed by the final value of
-    // the properties it reads, never by the prompt, so the text grows with the vocabulary, not
-    // with the number of combinations. `reads` lets a later pass point at the line behind a miss.
+    // the properties it reads (the fields line also asks `why` whether a chip took a field away),
+    // never by the chips themselves, so the text grows with the vocabulary, not with the number
+    // of combinations. `reads` lets a later pass point at the line behind a miss.
     report: {
       opener: (spec) => `Your “${spec.heading}” form is ready.`,
       lines: [

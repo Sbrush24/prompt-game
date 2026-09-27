@@ -157,7 +157,7 @@
         // Too narrow for both at a readable size. Leave room for the pinned brief above, so
         // it and the phone stay in view together while the player checks.
         layout = 'stack';
-        const room = Math.max(260, window.innerHeight - topInset() - STACK_RESERVE);
+        const room = Math.max(220, window.innerHeight - topInset() - STACK_RESERVE); // 320x568 needs 240
         phoneScale = Math.min(1, width / outer.phone.w, room / (DEVICES.phone.page + DEVICES.phone.bezel));
         desktopScale = Math.min(1, width / outer.desktop.w);
       }
@@ -259,7 +259,7 @@
           const behind = ids.includes(line.dataset.line);
           line.classList.toggle('is-blamed', behind);
           const note = line.querySelector('.report-behind');
-          if (behind && !note) line.prepend(el('span', 'report-behind visually-hidden', 'Behind a miss: '));
+          if (behind && !note) line.prepend(el('span', 'report-behind visually-hidden', 'Behind an item not met: '));
           if (!behind && note) note.remove();
         }
       },

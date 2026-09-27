@@ -76,9 +76,14 @@
       return Placement.missingRequired(state, level).length === 0;
     },
 
-    // Placed fragment ids in declaration order, so a prompt never depends on drag history.
+    // Placed fragment ids in declaration order, so a build never depends on drag history.
     placed(state, level) {
       return level.fragments.map((f) => f.id).filter((id) => Placement.locate(state, id));
+    },
+
+    // Placed fragment ids as they sit on the rail, socket by socket: what the player wrote.
+    written(state, level) {
+      return level.slots.flatMap((slot) => state.sockets[slot.id].filter((id) => id !== null));
     },
   };
 
@@ -178,7 +183,7 @@
     // ----- helpers -----
 
     const textOf = (id) => fragmentById(level, id).text;
-    const slotName = (id) => slotById(level, id).name;
+    const inSlot = (id) => `the ${slotById(level, id).name} slot`;
 
     function announce(message) {
       status.textContent = '';
@@ -199,7 +204,7 @@
           socket.classList.toggle('is-target', isTarget);
           empty.tabIndex = isTarget ? 0 : -1;
           empty.setAttribute('aria-disabled', String(!isTarget));
-          empty.setAttribute('aria-label', isTarget ? `Place “${sel.text}” in ${slot.name}` : `${slot.name}, empty`);
+          empty.setAttribute('aria-label', isTarget ? `Place “${sel.text}” in ${inSlot(slot.id)}` : `${slot.name} slot, empty`);
         });
       }
 
@@ -214,12 +219,14 @@
         if (at) {
           // While a chip for another slot is picked up, placed chips are not targets.
           const inert = !!sel && sel.slot !== frag.slot;
-          const behind = blamed.has(frag.id) ? `, behind a miss: ${joinWords(blamed.get(frag.id))}` : '';
-          const where = `${frag.text}, in ${slotName(frag.slot)}${behind}`;
+          // "Not met", as on the brief: "Missed" there is the player's call, not the item.
+          const items = blamed.get(frag.id) || [];
+          const behind = items.length ? `, behind ${items.length > 1 ? 'items' : 'an item'} not met: ${joinWords(items)}` : '';
+          const where = `${frag.text}, in ${inSlot(frag.slot)}${behind}`;
           chip.removeAttribute('aria-pressed');
           chip.setAttribute('aria-disabled', String(locked || inert));
-          chip.setAttribute('aria-label', !sel ? `${where}. Press to take it out`
-            : inert ? where
+          chip.setAttribute('aria-label', locked || inert ? where
+            : !sel ? `${where}. Press to take it out`
             : `${where}. Press to swap in “${sel.text}”`);
         } else {
           chip.setAttribute('aria-disabled', String(locked));
@@ -233,7 +240,6 @@
       runHint.textContent = locked ? lockedHint
         : missing.length ? `Add ${joinWords(missing.map((s) => withArticle(s.name)))} to run`
         : '';
-      root.classList.toggle('has-selection', !!sel);
       root.classList.toggle('is-locked', locked);
     }
 
@@ -249,7 +255,7 @@
       if (next === state) return sync(); // dropped back on its own socket: nothing happened
       state = next;
       sync();
-      let message = `“${textOf(id)}” placed in ${slotName(slotId)}.`;
+      let message = `“${textOf(id)}” placed in ${inSlot(slotId)}.`;
       if (displaced && displaced !== id && !Placement.locate(state, displaced)) {
         message += ` “${textOf(displaced)}” went back to the tray.`;
       }
@@ -283,7 +289,7 @@
     function onClick(event) {
       const button = event.target.closest('button');
       const fromKeyboard = event.detail === 0;
-      if (button && button === runBtn) return run();
+      if (button && button === runBtn) return run(fromKeyboard);
       if (locked) {
         if (event.target.closest('.chip, .socket')) sayLockedHint();
         return;
@@ -310,7 +316,7 @@
       }
       select(id);
       const slotId = fragmentById(level, id).slot;
-      announce(`Picked up “${textOf(id)}”. Choose where it goes in ${slotName(slotId)}.`);
+      announce(`Picked up “${textOf(id)}”. Choose where it goes in ${inSlot(slotId)}.`);
       if (fromKeyboard) focusTargetFor(slotId);
     }
 
@@ -358,13 +364,13 @@
       announce(lockedHint);
     }
 
-    function run() {
+    function run(fromKeyboard) {
       if (locked) return sayLockedHint();
       if (!Placement.isReady(state, level)) {
         announce(runHint.textContent);
         return;
       }
-      onRun(api);
+      onRun(api, { fromKeyboard });
     }
 
     // ----- drag (Pointer Events, so mouse, pen and touch share one path) -----
@@ -420,6 +426,9 @@
       if (!drag || event.pointerId !== drag.pointerId) return;
       if (!drag.active) return endDrag(); // a plain tap: the click handler takes it from here
 
+      drag.x = event.clientX;
+      drag.y = event.clientY;
+      hitTest(); // the page may have scrolled under a still pointer since the last move
       const { id, over } = drag;
       suppressClick = true; // the click that follows this pointerup belongs to the drag
       window.setTimeout(() => { suppressClick = false; }, 0);
@@ -451,6 +460,7 @@
 
       drag.chip.classList.add('is-lifted');
       document.documentElement.classList.add('is-dragging-chip');
+      window.addEventListener('scroll', hitTest, { capture: true, passive: true });
       // Every socket of the chip's slot takes it, bar the one it is lifted from.
       const slotId = fragmentById(level, drag.id).slot;
       const from = Placement.locate(state, drag.id);
@@ -463,7 +473,14 @@
     function moveGhost() {
       const { ghost, x, y, offsetX, offsetY } = drag;
       ghost.style.transform = `translate(${x - offsetX}px, ${y - offsetY}px) rotate(-2deg)`;
+      hitTest();
+    }
 
+    // Which socket is under the pointer. Also run on scroll: the wheel moves the sockets under a
+    // pointer that has not moved.
+    function hitTest() {
+      if (!drag || !drag.active) return;
+      const { x, y } = drag;
       const hit = document.elementFromPoint(x, y);
       const socket = hit && hit.closest('.socket');
       const valid = socket && root.contains(socket) && socket.dataset.slot === fragmentById(level, drag.id).slot
@@ -487,6 +504,7 @@
       window.removeEventListener('pointerup', onPointerUp);
       window.removeEventListener('pointercancel', endDrag);
       window.removeEventListener('blur', endDrag);
+      window.removeEventListener('scroll', hitTest, { capture: true });
       drag = null;
     }
 
@@ -506,6 +524,7 @@
     const api = {
       get state() { return state; },
       placed: () => Placement.placed(state, level),
+      written: () => Placement.written(state, level),
       isReady: () => Placement.isReady(state, level),
       // Mark the chips behind missed brief items: { fragId: ['Works on a phone', ...] }.
       setBlame(byChip) {
@@ -540,9 +559,10 @@
     return /^[aeiou]/i.test(word) ? `an ${word}` : `a ${word}`;
   }
 
+  // "a, b, and c", with the serial comma, as the level's own text has it.
   function joinWords(words) {
-    if (words.length <= 1) return words.join('');
-    return `${words.slice(0, -1).join(', ')} and ${words[words.length - 1]}`;
+    if (words.length < 3) return words.join(' and ');
+    return `${words.slice(0, -1).join(', ')}, and ${words[words.length - 1]}`;
   }
 
   PG.Placement = Placement;

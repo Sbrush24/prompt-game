@@ -1,0 +1,11 @@
+{
+  "name": "prompt-game",
+  "private": true,
+  "description": "A browser game about directing AI coding assistants. No build step: open index.html.",
+  "engines": {
+    "node": ">=22.14"
+  },
+  "scripts": {
+    "test": "node --test tests/*.test.mjs"
+  }
+}

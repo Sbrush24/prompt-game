@@ -37,6 +37,7 @@
   --go-edge: #b8ae1e;
   --met: #0072b2; /* Okabe-Ito blue: met, on the reveal; always with a glyph, a word and a solid edge */
   --unmet: #d55e00; /* Okabe-Ito vermillion: not met, or behind a miss; always with a glyph and a dashed edge */
+  --unmet-ink: #b34700; /* the same, darkened for marks on the light ground and the ticket (3:1 and 4.5:1) */
 
   --focus: var(--accent);
   --font: "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
@@ -308,7 +309,7 @@ button {
 }
 
 .req.is-unmet .req-glyph {
-  color: var(--unmet);
+  color: var(--unmet-ink);
 }
 
 .req-call {
@@ -318,7 +319,10 @@ button {
 
 /* The lesson's moment: ticked, but not met. */
 .req[data-call="missed"] .req-call {
-  text-decoration: underline 3px var(--unmet);
+  /* Longhands: Safari before 26.2 drops a shorthand that includes the thickness. */
+  text-decoration-line: underline;
+  text-decoration-thickness: 3px;
+  text-decoration-color: var(--unmet-ink);
   text-underline-offset: 3px;
 }
 
@@ -367,7 +371,6 @@ button {
 }
 
 .brief-action {
-  --focus: var(--accent);
   min-height: 44px;
   padding: 0 18px;
   background: var(--ink);
@@ -417,12 +420,9 @@ button {
     font-size: 1rem;
   }
 
-  .ticket-job {
-    display: none;
-  }
-
   /* Once there is a build to check, the strip keeps its room for the checklist. */
-  .pane--brief [data-state]:not([data-state="plain"]) .ticket-client {
+  .pane--brief [data-state]:not([data-state="plain"]) .ticket-client,
+  .pane--brief [data-state]:not([data-state="plain"]) .ticket-job {
     display: none;
   }
 
@@ -455,8 +455,7 @@ button {
   }
 
   /* Until something is built, empty frames would only push the builder off screen. */
-  .app[data-built="false"] .frame,
-  .app[data-built="false"] .build-status {
+  .app[data-built="false"] .frame {
     display: none;
   }
 
@@ -778,7 +777,7 @@ button {
   position: relative;
   list-style: none;
   border-radius: 4px;
-  outline: 2px dashed var(--unmet);
+  outline: 2px dashed var(--unmet-ink);
   outline-offset: 2px;
 }
 
@@ -787,7 +786,7 @@ button {
   content: "✗" / "";
   position: absolute;
   left: -1.25em;
-  color: var(--unmet);
+  color: var(--unmet-ink);
   font-weight: 800;
 }
 
@@ -1504,7 +1503,7 @@ button {
   .run-hint {
     order: 2;
     max-width: 10em;
-    min-height: 1.3em; /* a line kept for it, so Run stays put when "Building…" clears */
+    min-height: 2.6em; /* two lines kept for it ("Add an action and a thing to run"), so Run stays put */
     margin: 0;
     font-size: 0.875rem;
   }
@@ -1568,4 +1567,17 @@ button {
   .socket.is-droppable {
     border-color: Highlight;
   }
+}
+
+/* Written into the builder by index.html and replaced when the game starts. It shows only if
+   the game never starts, after a wait long enough that a normal load never flashes it. */
+.boot-failed {
+  padding: 16px;
+  font-weight: 700;
+  opacity: 0;
+  animation: boot-failed 0s 3s forwards;
+}
+
+@keyframes boot-failed {
+  to { opacity: 1; }
 }

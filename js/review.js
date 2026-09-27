@@ -64,7 +64,7 @@
         row.outcome.replaceChildren();
         row.seen.textContent = '';
       }
-      say.textContent = 'Tick what the build does';
+      say.textContent = 'Wait for the build to finish';
       action.textContent = 'Check';
       action.setAttribute('aria-disabled', 'true');
       setState('waiting');
@@ -74,6 +74,7 @@
     function startReview(built) {
       result = built;
       for (const row of rows) row.box.disabled = false;
+      say.textContent = 'Tick what the build does';
       action.setAttribute('aria-disabled', 'false');
       setState('marking');
     }
