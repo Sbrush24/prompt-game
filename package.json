@@ -1,5 +1,6 @@
 {
   "name": "prompt-game",
+  "version": "0.1.0",
   "private": true,
   "description": "A browser game about directing AI coding assistants. No build step: open index.html.",
   "engines": {
