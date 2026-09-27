@@ -171,15 +171,23 @@ button {
 }
 
 /* Wide: the brief owns the left column and stays pinned beside both the output and the
-   builder, so it is in view while composing and while checking. */
-@media (min-width: 1280px) {
+   builder, so it is in view while composing and while checking. It starts at 1360, not 1280:
+   below that the column would leave the builder's rail so narrow that chips wrap word by word,
+   and a 1280 laptop is better served by the full-width builder. */
+@media (min-width: 1360px) {
   .app {
-    grid-template-columns: 300px minmax(0, 1fr);
+    grid-template-columns: 270px minmax(0, 1fr);
     grid-template-areas:
       "head head"
       "brief output"
       "brief builder";
     align-items: start;
+  }
+}
+
+@media (min-width: 1440px) {
+  .app {
+    grid-template-columns: 300px minmax(0, 1fr);
   }
 }
 
@@ -189,7 +197,7 @@ button {
   filter: drop-shadow(0 6px 10px rgba(24, 34, 45, 0.18));
 }
 
-@media (min-width: 1280px) {
+@media (min-width: 1360px) {
   .pane--brief {
     position: sticky;
     top: var(--gutter);
@@ -390,7 +398,7 @@ button {
 
 /* On one column the brief becomes a compact strip pinned to the top, so it stays in view.
    (On very short screens, e.g. phone landscape at high zoom, it scrolls rather than fill them.) */
-@media (max-width: 1279.98px) {
+@media (max-width: 1359.98px) {
   html {
     scroll-padding-top: calc(var(--pinned-top, 0px) + 8px);
   }
@@ -464,7 +472,7 @@ button {
   }
 }
 
-@media (max-width: 1279.98px) and (min-height: 300px) {
+@media (max-width: 1359.98px) and (min-height: 300px) {
   .pane--brief {
     position: sticky;
     top: 0;
@@ -477,7 +485,7 @@ button {
   }
 }
 
-@media (min-width: 720px) and (max-width: 1279.98px) {
+@media (min-width: 720px) and (max-width: 1359.98px) {
   .reqs {
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
@@ -1448,7 +1456,7 @@ button {
   .slots {
     display: grid;
     grid-template-columns:
-      minmax(0, 0.8fr) minmax(0, 1fr) minmax(0, 1.25fr) minmax(0, 1.7fr) max(9rem, 124px);
+      minmax(0, 0.7fr) minmax(0, 1fr) minmax(0, 1.2fr) minmax(0, 2.3fr) max(8rem, 112px);
     grid-template-rows: auto auto;
     column-gap: 10px;
     row-gap: 0;

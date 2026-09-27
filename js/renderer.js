@@ -14,6 +14,12 @@
   };
   const GAP = 20; // matches .frames column-gap
   const MIN_SHARED_SCALE = 0.6; // side by side below this, the page's text gets too small to judge, so stack
+  // With a mouse or trackpad, a short window never shrinks the frames below the readable scale:
+  // the page scrolls instead. Browser zoom makes the window short in CSS pixels, and without
+  // this floor the frames would shrink as fast as the zoom grows them, so zooming in would never
+  // make the built page bigger. Touch screens zoom by pinching, which enlarges the frames anyway,
+  // and there the phone's page must fit under the pinned brief, so they keep no floor.
+  const finePointer = window.matchMedia('(pointer: fine)');
   // Stacked, the progress line and the built page share the screen with whatever is pinned at
   // the top. This is everything else on it: the progress line (36px), the gap under it (16px),
   // and the 10px margins main.js bringOutputIntoView keeps above and below. The blank foot of
@@ -143,14 +149,15 @@
         : Math.max(264, Math.min(520, window.innerHeight * 0.5, underBrief));
       const tallest = Math.max(outer.desktop.h, outer.phone.h);
       const byWidth = (width - GAP) / (outer.desktop.w + outer.phone.w);
-      const byHeight = maxHeight / tallest;
+      const floor = finePointer.matches ? MIN_SHARED_SCALE : 0;
+      const byHeight = Math.max(maxHeight / tallest, floor);
 
       let layout;
       let desktopScale;
       let phoneScale;
       if (byWidth >= Math.min(MIN_SHARED_SCALE, byHeight)) {
-        // Side by side, as large as the pane allows. A short window can still shrink them:
-        // stacking would not help there, since it is the height that runs out.
+        // Side by side, as large as the pane allows. A short window can still shrink them (down
+        // to the floor): stacking would not help there, since it is the height that runs out.
         layout = 'side';
         desktopScale = phoneScale = Math.min(1, byWidth, byHeight);
       } else {
@@ -158,7 +165,7 @@
         // it and the phone stay in view together while the player checks.
         layout = 'stack';
         const room = Math.max(220, window.innerHeight - topInset() - STACK_RESERVE); // 320x568 needs 240
-        phoneScale = Math.min(1, width / outer.phone.w, room / (DEVICES.phone.page + DEVICES.phone.bezel));
+        phoneScale = Math.min(1, width / outer.phone.w, Math.max(room / (DEVICES.phone.page + DEVICES.phone.bezel), floor));
         desktopScale = Math.min(1, width / outer.desktop.w);
       }
 
@@ -172,6 +179,7 @@
 
     new ResizeObserver(fit).observe(root);
     window.addEventListener('resize', fit);
+    finePointer.addEventListener('change', fit); // a mouse plugged in or unplugged
     fit();
 
     let timers = [];
