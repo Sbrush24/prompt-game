@@ -128,7 +128,7 @@
     }
     // The renderer draws one field per entry, each shown when its yes/no property is true.
     const drawn = new Set();
-    for (const field of level.formFields) {
+    for (const field of level.formFields || []) {
       if (!declared(field.prop) || level.vocabulary[field.prop].type !== 'bool') {
         fail(`form field "${field.label}" shows unknown or non-yes/no property "${field.prop}"`);
       }

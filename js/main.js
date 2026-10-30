@@ -8,8 +8,9 @@
 (function (PG) {
   'use strict';
 
-  const level = PG.Interpreter.validateLevel(PG.levels.level1); // a typo in the level data stops here, not mid-game
   const app = document.querySelector('.app');
+  const level = PG.Interpreter.validateLevel(PG.levels[app.dataset.level || 'level1']); // a typo in the level data stops here, not mid-game
+  const words = { building: 'Building…', checkFirst: 'Check the brief first', ...level.words };
 
   document.getElementById('level-number').textContent = `Level ${level.number}`;
   document.getElementById('level-title').textContent = level.title;
@@ -45,7 +46,7 @@
     const runBtn = document.querySelector('.run');
     app.dataset.phase = 'building';
     app.dataset.built = 'true';
-    builder.setLocked(true, 'Building…');
+    builder.setLocked(true, words.building);
     builder.setBlame({});
     brief.startBuild();
     measurePinned(); // the brief just grew its checkboxes; size the frames to what is left
@@ -59,7 +60,7 @@
 
     building.then(() => {
       app.dataset.phase = 'review';
-      builder.setLocked(true, 'Check the brief first');
+      builder.setLocked(true, words.checkFirst);
       brief.startReview(result);
       // Keyboard: straight on to the next step, unless the player went elsewhere meanwhile.
       // (A click leaves focus on Run too, but moving it would scroll a mouse player's view.)
@@ -122,13 +123,16 @@
   // the report comes after the phone and cannot fit as well: show the line and the phone's page.
   function bringOutputIntoView() {
     const rect = (selector) => document.querySelector(selector).getBoundingClientRect();
-    const { phone } = PG.Renderer.DEVICES;
     const top = rect('.build-status').top;
-    const screen = rect('.viewport--phone');
     const report = rect('.exchange--ai').bottom;
-    const ends = document.getElementById('output-body').dataset.layout === 'stack'
-      ? [screen.top + (screen.height * phone.page) / phone.height]
-      : [Math.max(report, rect('.run-area').bottom), report];
+    let ends;
+    if (document.getElementById('output-body').dataset.layout === 'stack') {
+      const { phone } = PG.Renderer.DEVICES;
+      const screen = rect('.viewport--phone');
+      ends = [screen.top + (screen.height * phone.page) / phone.height];
+    } else {
+      ends = [Math.max(report, rect('.run-area').bottom), report];
+    }
     const first = pinned('top') + 10;
     const last = window.innerHeight - 10; // the pinned Run bar never overlaps the output
     const bottom = ends.find((end) => end - top <= last - first);
