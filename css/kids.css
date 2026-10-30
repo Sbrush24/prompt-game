@@ -1,0 +1,293 @@
+/* Kids edition. Loaded after styles.css: it keeps the layout and the behaviour, and repaints
+   it as a sticker book. Blocks are colour-coded by slot like Scratch, everything has a thick
+   ink outline, and the build is a little game screen instead of a desktop and a phone.
+   Met and not met keep the Okabe-Ito blue and vermillion, with glyphs, as in the grown-up game. */
+
+@font-face {
+  font-family: "Fredoka";
+  src: url("../fonts/Fredoka-latin.woff2") format("woff2");
+  font-weight: 500 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  --ground: #fff4dc;
+  --panel: #ffffff;
+  --line: #e3cf9f;
+  --ink: #1d2433;
+  --ink-soft: #4b5468;
+
+  --rail: #2b2d6e;
+  --trough: #1f2157;
+  --trough-edge: #8a8ee0;
+  --rail-ink: #e4e6ff;
+
+  --ticket: #ffe3ef;
+  --ticket-line: #f29bbf;
+
+  --accent: #6a3fd1;
+  --accent-wash: #efe8ff;
+  --go: #ffd23f;
+  --go-edge: #c99a00;
+
+  --display: "Fredoka", "Atkinson Hyperlegible Next", system-ui, sans-serif;
+  --outline: 3px solid var(--ink);
+  --tile-radius: 14px;
+}
+
+body {
+  background: radial-gradient(circle, #f3dfae 1.5px, transparent 2px) 0 0 / 22px 22px, var(--ground);
+}
+
+.level-number,
+.level-title,
+.pane-heading,
+.ticket-client,
+.run,
+.brief-action,
+.brief-say,
+.who {
+  font-family: var(--display);
+}
+
+.level-number {
+  padding: 2px 12px;
+  background: var(--accent);
+  border-radius: 999px;
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.level-title {
+  font-size: 2rem;
+  font-weight: 700;
+}
+
+.pane-heading {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+/* ---------------------------------------------------------------- Maya's wish list */
+
+.pane--brief {
+  filter: none;
+}
+
+.ticket {
+  border: var(--outline);
+  border-radius: 18px;
+  box-shadow: 4px 5px 0 var(--ink);
+  -webkit-mask: none;
+  mask: none;
+}
+
+.ticket-client {
+  font-weight: 700;
+}
+
+/* ---------------------------------------------------------------- the game screen */
+
+.arcade {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 14px 14px 8px;
+  background: var(--accent);
+  border: var(--outline);
+  border-radius: 26px;
+  box-shadow: 5px 6px 0 var(--ink);
+}
+
+.arcade-screen {
+  position: relative;
+  aspect-ratio: 3 / 2;
+  overflow: hidden;
+  background: #dff3ff;
+  border: var(--outline);
+  border-radius: 14px;
+}
+
+.arcade .viewport-empty {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-family: var(--display);
+  font-size: 1.25rem;
+  color: var(--ink-soft);
+}
+
+.arcade .frame-caption {
+  margin-top: 6px;
+  color: #ffffff;
+  font-family: var(--display);
+  text-align: center;
+}
+
+.game,
+.game-art {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.game-art text {
+  font-family: var(--display);
+}
+
+.game .part {
+  transition: opacity 280ms ease-out;
+}
+
+.game.is-building .part:not(.is-in) {
+  opacity: 0;
+}
+
+.faller {
+  animation: fall var(--fall) linear var(--delay) infinite;
+}
+
+@keyframes fall {
+  from { transform: translateY(-30px); }
+  to { transform: translateY(300px); }
+}
+
+.hero {
+  animation: patrol 2.6s ease-in-out infinite alternate;
+}
+
+@keyframes patrol {
+  from { transform: translateX(-130px); }
+  to { transform: translateX(130px); }
+}
+
+/* ---------------------------------------------------------------- Bolt */
+
+.assistant {
+  max-width: 720px;
+  margin-inline: auto;
+}
+
+.who {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+}
+
+.bolt-face {
+  width: 34px;
+  height: 40px;
+}
+
+.exchange--ai .said {
+  padding: 12px 16px;
+  background: #ffffff;
+  border: var(--outline);
+  border-radius: 18px;
+  box-shadow: 3px 4px 0 var(--ink);
+}
+
+.report-opener {
+  font-family: var(--display);
+  font-size: 1.125rem;
+  font-weight: 600;
+}
+
+/* ---------------------------------------------------------------- blocks */
+
+.pane--builder {
+  border: var(--outline);
+  border-radius: 20px;
+  box-shadow: 4px 5px 0 var(--ink);
+}
+
+.slot--start { --block: #ffd23f; --block-edge: #b88a00; }
+.slot--thing { --block: #6fc3ff; --block-edge: #1f78c4; }
+.slot--style { --block: #c7a6ff; --block-edge: #6a3fd1; }
+.slot--extras { --block: #8fe08a; --block-edge: #2f8a2a; }
+
+.slot-rail {
+  border-radius: 16px;
+  border-left: 12px solid var(--block);
+}
+
+.slot-name {
+  font-family: var(--display);
+  font-size: 1rem;
+  text-transform: capitalize;
+}
+
+.tile {
+  border: var(--outline);
+  border-bottom-width: 6px;
+  border-radius: var(--tile-radius);
+  font: 600 1.0625rem/1.2 var(--display);
+}
+
+.chip {
+  background: var(--block, var(--tile));
+}
+
+.chip:hover {
+  border-color: var(--ink);
+  transform: rotate(-2deg);
+}
+
+.chip[aria-pressed="true"] {
+  background: var(--block);
+  border-color: var(--ink);
+  box-shadow: 0 0 0 4px var(--accent);
+  transform: translateY(-4px) rotate(-3deg);
+}
+
+.socket {
+  border-radius: 14px;
+}
+
+.socket.is-filled.is-target::after,
+.socket.is-filled.is-droppable::after {
+  content: "Swap here";
+  content: "Swap here" / "";
+}
+
+.run {
+  min-width: 140px;
+  border: var(--outline);
+  border-bottom-width: 6px;
+  border-radius: 999px;
+  font-size: 1.375rem;
+  font-weight: 700;
+}
+
+.run-area {
+  border-radius: 20px;
+}
+
+.brief-action {
+  border-radius: 999px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .faller {
+    animation: none;
+    transform: translateY(var(--rest));
+  }
+
+  .hero {
+    animation: none;
+  }
+
+  .chip:hover,
+  .chip[aria-pressed="true"] {
+    transform: none;
+  }
+}
+
+/* The "Building…" line sits over the reserved report; inside the bubble, keep it off the border. */
+.exchange--ai .said-building {
+  top: 12px;
+  left: 16px;
+}

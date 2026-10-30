@@ -14,6 +14,19 @@ sounds confident. In the GIF above, "build me a form, make it nice" gets a passw
 asked for, a "Submit" button, and a layout that is too wide for the phone. The AI says the form is
 ready to ship. The form fails every item on the brief.
 
+## Kids edition
+
+[`kids.html`](https://sbrush24.github.io/prompt-game/kids.html) is the same game for ages 8 to 12.
+Maya, age 9, wants a game for her cat's birthday. You snap colour-coded word blocks together, Bolt
+the robot builds a little catch game from them, and you check it against Maya's wish list. Bolt is
+always sure he got it right. "make a game, make it cool" gets a robot catching coins over lava at
+TURBO speed with no score.
+
+It runs on the same interpreter, prompt rail and brief check as the grown-up level. Only the level
+data (`js/kids/level1.js`), the game screen (`js/kids/renderer.js`) and the look (`css/kids.css`)
+are new. It collects nothing: no accounts, no analytics, no free text and no network calls. That
+matters more for a game aimed at children under 13, so keep it that way.
+
 ## Why the AI is simulated
 
 This game could have called a real model. I decided against it for four reasons.
@@ -81,4 +94,5 @@ no dependencies.
 ## Credits
 
 The typeface is [Atkinson Hyperlegible Next](https://github.com/googlefonts/atkinson-hyperlegible-next),
-used under the SIL Open Font License (`fonts/OFL.txt`).
+used under the SIL Open Font License (`fonts/OFL.txt`). The kids edition's headings use
+[Fredoka](https://github.com/hafontia/Fredoka-One), also under the SIL Open Font License (`fonts/Fredoka-OFL.txt`).

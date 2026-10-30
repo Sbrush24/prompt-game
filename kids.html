@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Prompt Game for Kids: Say what you mean</title>
+  <meta name="description" content="Snap word blocks together to tell Bolt the robot what game to build, then check whether he got it right.">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="css/styles.css">
+  <link rel="stylesheet" href="css/kids.css">
+  <script defer src="js/dom.js"></script>
+  <script defer src="js/kids/level1.js"></script>
+  <script defer src="js/interpreter.js"></script>
+  <script defer src="js/builder.js"></script>
+  <script defer src="js/kids/renderer.js"></script>
+  <script defer src="js/review.js"></script>
+  <script defer src="js/main.js"></script>
+</head>
+<body>
+  <main class="app app--kids" data-level="kids1" data-phase="compose" data-built="false">
+    <header class="masthead">
+      <p class="level-number" id="level-number">Level 1</p>
+      <h1 class="level-title" id="level-title">Say what you mean</h1>
+    </header>
+
+    <section class="pane pane--brief" aria-labelledby="brief-heading">
+      <div class="ticket">
+        <h2 class="pane-heading ticket-heading" id="brief-heading">Maya’s wish list</h2>
+        <div id="brief-body"></div>
+      </div>
+    </section>
+
+    <section class="pane pane--output" aria-labelledby="output-heading">
+      <h2 class="pane-heading" id="output-heading">What Bolt built</h2>
+      <div class="output-body" id="output-body"></div>
+    </section>
+
+    <section class="pane pane--builder" aria-labelledby="builder-heading">
+      <h2 class="pane-heading" id="builder-heading">Your blocks</h2>
+      <div class="builder" id="builder-body">
+        <!-- Replaced when the game starts. Shown only if it never does. -->
+        <p class="boot-failed">The game could not start. Try reloading the page, or open it in a current browser.</p>
+        <noscript><p>This game needs JavaScript. Turn it on and reload the page.</p></noscript>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

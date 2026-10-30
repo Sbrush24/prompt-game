@@ -103,6 +103,7 @@
 
   function mount(root, level, { onChange = () => {}, onRun = () => {} } = {}) {
     const { el } = PG.dom;
+    const words = { run: 'Run', placeHere: 'Place here', ...level.words };
 
     let state = Placement.create(level);
     let selected = null; // fragment id picked up by tap or keyboard
@@ -138,7 +139,7 @@
         socket.dataset.index = String(i);
         const empty = el('button', 'socket-empty');
         empty.type = 'button';
-        empty.append(el('span', 'socket-hint', 'Place here'));
+        empty.append(el('span', 'socket-hint', words.placeHere));
         socket.append(empty);
         socketEls[slot.id].push(socket);
         emptyEls[slot.id].push(empty);
@@ -169,7 +170,7 @@
     const runArea = el('div', 'run-area');
     const runHint = el('p', 'run-hint');
     runHint.id = 'run-hint';
-    const runBtn = el('button', 'run', 'Run');
+    const runBtn = el('button', 'run', words.run);
     runBtn.type = 'button';
     runBtn.setAttribute('aria-describedby', runHint.id);
     runArea.append(runHint, runBtn);

@@ -14,8 +14,22 @@
 
   const CALLS = { confirmed: 'Confirmed', doubted: 'Doubted', caught: 'Caught', missed: 'Missed' };
 
+  // What the brief says at each step. A level can reword any of it in `level.words`.
+  const WORDS = {
+    waiting: 'Wait for the build to finish',
+    check: 'Check',
+    marking: 'Tick what the build does',
+    met: 'Met',
+    notMet: 'Not met',
+    approved: 'Approved',
+    notApproved: 'Not approved',
+    again: 'Try another prompt',
+    retry: 'Retry',
+  };
+
   function mountBrief(root, level, { onCheck = () => {}, onRetry = () => {} } = {}) {
     const { el } = PG.dom;
+    const words = { ...WORDS, ...level.words };
 
     const client = el('p', 'ticket-client', level.brief.client);
     const job = el('p', 'ticket-job', level.brief.job);
@@ -64,8 +78,8 @@
         row.outcome.replaceChildren();
         row.seen.textContent = '';
       }
-      say.textContent = 'Wait for the build to finish';
-      action.textContent = 'Check';
+      say.textContent = words.waiting;
+      action.textContent = words.check;
       action.setAttribute('aria-disabled', 'true');
       setState('waiting');
     }
@@ -74,7 +88,7 @@
     function startReview(built) {
       result = built;
       for (const row of rows) row.box.disabled = false;
-      say.textContent = 'Tick what the build does';
+      say.textContent = words.marking;
       action.setAttribute('aria-disabled', 'false');
       setState('marking');
     }
@@ -89,14 +103,14 @@
         row.item.classList.add(met ? 'is-met' : 'is-unmet');
         row.item.dataset.call = call;
         const truth = el('span', 'req-truth');
-        truth.append(el('span', 'req-glyph', met ? '✓' : '✗'), ` ${met ? 'Met' : 'Not met'}`);
+        truth.append(el('span', 'req-glyph', met ? '✓' : '✗'), ` ${met ? words.met : words.notMet}`);
         row.outcome.replaceChildren(truth, ' ', el('span', 'req-call', CALLS[call]));
         row.seen.textContent = row.req.seen(result.spec);
       }
       const passed = metCount === rows.length;
       say.classList.toggle('is-approved', passed); // stamped on the ticket
-      say.textContent = passed ? 'Approved' : 'Not approved';
-      action.textContent = passed ? 'Try another prompt' : 'Retry';
+      say.textContent = passed ? words.approved : words.notApproved;
+      action.textContent = passed ? words.again : words.retry;
       setState('revealed');
       announcer.textContent = `${say.textContent}: ${metCount} of ${rows.length} met.`;
       onCheck({ passed, calls: Object.fromEntries(rows.map((row) => [row.req.id, row.item.dataset.call])) });
